@@ -1,0 +1,85 @@
+\section{Technology Stack}
+
+The backend API's were written in NodeJS using \href{https://loopback.io}{loopback framework}. The gateway uses \href{https://www.express-gateway.io/}{express gateway}. For the service discovery I used \href{https://www.consul.io/}{consul}. For the user interface I used Angular 5 with \href{https://cli.angular.io/}{angular-cli}. All services and links to their Github repositories are listed below
+
+\begin{itemize}
+  \item \href{https://github.com/msc-blog-assignment/msc-blog-user-api}{User API} which stores user information
+  \item \href{https://github.com/msc-blog-assignment/msc-blog-article-api}{Article API} for storing information on user blog articles
+  \item \href{https://github.com/msc-blog-assignment/msc-blog-avatar-api}{Avatar API} for uploading and storing information about user avatars
+  \item \href{https://github.com/msc-blog-assignment/msc-blog-comments-api}{Comments API} For storing user comments related to a particular blog entry
+  \item \href{https://github.com/msc-blog-assignment/msc-blog-upload-api}{Upload API} For storing uploaded files to an Amazon S3 server
+  \item \href{https://github.com/msc-blog-assignment/msc-blog-graphql}{GraphQL server} For querying all information on the site
+  \item \href{https://github.com/msc-blog-assignment/msc-blog-gateway}{Gateway server} The main gateway for accessing the website and backend servers
+  \item \href{https://github.com/msc-blog-assignment/msc-blog-consul}{Consul} Service discovery server
+  \item \href{https://github.com/msc-blog-assignment/msc-blog-ui}{user interface} written in angular 5 and redux
+\end{itemize}
+Each service exposes multiple rest endpoints. The UI however, will not interact directly with any of the above services. Instead I have created a \href{https://graphql.org/learn/}{GraphQL} server which acts as an intermediary service. This is a powerful paradigm as the UI can easily mix and match the data it wants to query from the back-end. For example, if we want to get a list of articles, with comments and user information for each article we could simply send the following query to the GraphQL server.
+
+\begin{minted}{js}
+query {
+  articles {
+    id
+    name
+    content
+    createdAt
+    user {
+      username,
+      totalArticles {
+        count
+      }
+      articles {
+        name
+      }
+      avatar {
+        avatar
+      }
+    }
+    comments {
+      id
+      comment
+      userId
+      createdAt
+      user {
+        id
+        username
+        avatar {
+            avatar
+        }
+      }
+    }
+  }
+}
+\end{minted}
+The GraphQL server will then figure out how to get the information. Not that the article, comments and user data is on 3 seperate services. This means when we send the GraphQL request, the GraphQL server will send requests to each of those services to get the appropriate data. This is much quicker than the UI waiting for the article data, then sending another request to get the comments and another to get the user information.  GraphQL comes with a very easy to use user interface called graphiql. For my site it can be accessed \href{https://msc-blog-gateway.cfapps.io/graphiql}{here}. If you copy and paste the query above into it and click the play button you can query the data.
+
+\section{Continuous Deployment}
+
+Each of the services mentioned above have been setup to automatically deploy to a cloud foundry instance when I merge to the master branch. For this I am using \href{https://travis-ci.org/}{travis-ci}. Travis is free for open source projects. It can easily be setup to automatically deploy to cloud foundry.
+
+\section{Cloud Foundry}
+
+All services have been deployed to cloud foundry. The main entry point can be found \href{https://msc-blog-gateway.cfapps.io/}{here}. However if you want to access an individual service they are listed below
+
+\begin{itemize}
+  \item \url{https://msc-blog-article-api.cfapps.io/explorer}
+  \item \url{https://msc-blog-avatar-api.cfapps.io/explorer}
+  \item \url{https://msc-blog-comments-api.cfapps.io/explorer}
+  \item \url{https://msc-blog-consul.cfapps.io/ui}
+  \item \url{https://msc-blog-graphql.cfapps.io/graphiql}
+  \item \url{https://msc-blog-upload-api.cfapps.io/explorer/}
+  \item \url{https://github.com/msc-blog-assignment/msc-blog-gateway}
+  \item \url{https://msc-blog-user-api.cfapps.io/explorer}
+\end{itemize}
+
+\section{File Storage}
+
+Avatars are image files that a user can upload to the backend, the backend will then stream this file directly to an amazon S3 bucket. The flow is quite interesting and took a while to setup. The UI streams the uploaded file to the gateway with a GraphQL query. The file then gets streamed to the GraphQL server which in turn streams it to the avatar api, which in turn streams the file to the upload api which finally streams the file to the aws  s3 server. The important thing to note is there is very little overhead for each api server as the file is streamed, which means each server does not download the file, instead it passes on the bytes to the next server as soon as it sees them. 
+
+\section{Running the project}
+
+Each of the projects has instructions in the readme.md files. Each service is built as a docker container in travis-ci and can be orchestrated using docker-compose for local development. For example to run the user interface locally we can first run 
+
+\begin{minted}{bash}
+	$ docker-compose up
+\end{minted}
+This will download all the necessary containers and will even create a fake amazon s3 server for local development. This is very powerful as you can basically run the entire stack on your local development machine without having to deploy the apps. 
